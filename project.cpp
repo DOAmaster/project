@@ -1,12 +1,11 @@
 //modified by: Derrick Alden
-//date:
 //
-//3480 Computer Graphics
-//lab7.cpp
+//3480 Computer Graphics Project
+//FrameWork
 //Author: Gordon Griesel
 //Date: 2017
-//This is a perspective ray tracer.
-//
+//perspective ray tracer.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,6 +63,10 @@ struct Object {
 	bool specular;
 	Vec spec;
 	Flt base, apex;
+
+//	int (*intersect)(Object *o, Ray *r, Hit *h);
+//	void (*normal)(Object *o, Vec p, Vec norm);
+
 	Object() {
 		specular = false;
 		inside = false;
@@ -228,6 +231,105 @@ int main(void)
 	return 0;
 }
 
+
+void sphereNormal(Vec center,Vec hitPoint, Vec norm)
+{
+	//Calc normal at hit
+	norm[0] = hitPoint[0] - center[0];
+	norm[1] = hitPoint[1] - center[1];
+	norm[2] = hitPoint[2] - center[2];
+	vecNormalize(norm);
+}
+int raySphereIntersect(Object *o, Ray *ray, Hit *hit)
+{
+	//printf("raySphereIntersect()...\n");
+	//Determine if and where a ray intersects a sphere.
+	//
+	// sphere equation:
+	// (p - c) * (p - c) = r * r
+	//
+	// where:
+	// p = point on sphere surface
+	// c = center of sphere
+	//
+	// ray equation:
+	// o + t*d
+	//
+	// where:
+	//   o = ray origin
+	//   d = ray direction
+	//   t = distance along ray, or scalar
+	//
+	// substitute ray equation into sphere equation
+	//
+	// (o + t*d - c) * (o + t*d - c) - r * r = 0
+	//
+	// we want it in this form:
+	// a*t*t + b*t + c = 0
+	//
+	// (o + d*t - c)
+	// (o + d*t - c)
+	// -------------
+	// o*o + o*d*t - o*c + o*d*t + d*t*d*t - d*t*c - o*c + c*d*t + c*c
+	// d*t*d*t + o*o + o*d*t - o*c + o*d*t - d*t*c - o*c + c*d*t + c*c
+	// d*t*d*t + 2(o*d*t) - 2(c*d*t) + o*o - o*c - o*c + c*c
+	// d*t*d*t + 2(o-c)*d*t + o*o - o*c - o*c + c*c
+	// d*t*d*t + 2(o-c)*d*t + (o-c)*(o-c)
+	//
+	// t*t*d*d + t*2*(o-c)*d + (o-c)*(o-c) - r*r
+	//
+	// a = dx*dx + dy*dy + dz*dz
+	// b = 2(ox-cx)*dx + 2(oy-cy)*dy + 2(oz-cz)*dz
+	// c = (ox-cx)*(ox-cx) + (oy-cy)*(oy-cy) + (oz-cz)*(oz-cz) - r*r
+	//
+	// now put it in quadratic form:
+	// t = (-b +/- sqrt(b*b - 4ac)) / 2a
+	//
+	//
+	//1. a, b, and c are given to you just above.
+	//2. Create variables named a,b,c, and assign the values you see above.
+	//3. Look how a,b,c are used in the quadratic equation.
+	//4. Make your code solve for t.
+	//5. Remember, a quadratic can have 0, 1, or 2 solutions.
+	//
+	Flt a = ray->d[0]*ray->d[0] + ray->d[1]*ray->d[1] + ray->d[2]*ray->d[2];
+	Flt b = 2.0*(ray->o[0]-o->center[0])*ray->d[0] +
+		2.0*(ray->o[1]-o->center[1])*ray->d[1] +
+		2.0*(ray->o[2]-o->center[2])*ray->d[2];
+	Flt c = (ray->o[0]-o->center[0])*(ray->o[0]-o->center[0]) +
+		(ray->o[1]-o->center[1])*(ray->o[1]-o->center[1]) +
+		(ray->o[2]-o->center[2])*(ray->o[2]-o->center[2]) -
+		o->radius*o->radius;
+	Flt t0,t1;
+	//discriminant
+	Flt disc = b * b - 4.0 * a * c;
+	if (disc < 0.0) return 0;
+	disc = sqrt(disc);
+	t0 = (-b - disc) / (2.0*a);
+	t1 = (-b + disc) / (2.0*a);
+	if (t0 > 0.0) {
+		hit->p[0] = ray->o[0] + ray->d[0] * t0;
+		hit->p[1] = ray->o[1] + ray->d[1] * t0;
+		hit->p[2] = ray->o[2] + ray->d[2] * t0;
+		sphereNormal(hit->p, o->center, hit->norm);
+		hit->t = t0;
+
+		//sphere hit checking if intersect
+		if (hit->t = ray->o[0]) { return 0; }
+
+		return 1;
+	}
+	if (t1 > 0.0) {
+		hit->p[0] = ray->o[0] + ray->d[0] * t1;
+		hit->p[1] = ray->o[1] + ray->d[1] * t1;
+		hit->p[2] = ray->o[2] + ray->d[2] * t1;
+		sphereNormal(hit->p, o->center, hit->norm);
+		hit->t = t1;
+		return 1;
+	}
+	return 0;
+}
+
 void takeScreenshot(const char *filename, int reset)
 {
 	//This function will capture your current X11 window,
@@ -279,6 +381,10 @@ void init(void)
   vecMake(0,0,0, o->color);
   o->radius = 200.0;
   vecNormalize(o->norm);
+
+  //o->intersect = raySphereIntersect;
+  //o->normal = sphereNormal;
+
   g.nobjects++;
   
 
@@ -666,99 +772,6 @@ int rayDiskIntersect(Object *o, Ray *ray, Hit *hit)
 	return 0;
 }
 
-void sphereNormal(Vec center,Vec hitPoint, Vec norm)
-{
-	//Calc normal at hit
-	norm[0] = hitPoint[0] - center[0];
-	norm[1] = hitPoint[1] - center[1];
-	norm[2] = hitPoint[2] - center[2];
-	vecNormalize(norm);
-}
-int raySphereIntersect(Object *o, Ray *ray, Hit *hit)
-{
-	//printf("raySphereIntersect()...\n");
-	//Determine if and where a ray intersects a sphere.
-	//
-	// sphere equation:
-	// (p - c) * (p - c) = r * r
-	//
-	// where:
-	// p = point on sphere surface
-	// c = center of sphere
-	//
-	// ray equation:
-	// o + t*d
-	//
-	// where:
-	//   o = ray origin
-	//   d = ray direction
-	//   t = distance along ray, or scalar
-	//
-	// substitute ray equation into sphere equation
-	//
-	// (o + t*d - c) * (o + t*d - c) - r * r = 0
-	//
-	// we want it in this form:
-	// a*t*t + b*t + c = 0
-	//
-	// (o + d*t - c)
-	// (o + d*t - c)
-	// -------------
-	// o*o + o*d*t - o*c + o*d*t + d*t*d*t - d*t*c - o*c + c*d*t + c*c
-	// d*t*d*t + o*o + o*d*t - o*c + o*d*t - d*t*c - o*c + c*d*t + c*c
-	// d*t*d*t + 2(o*d*t) - 2(c*d*t) + o*o - o*c - o*c + c*c
-	// d*t*d*t + 2(o-c)*d*t + o*o - o*c - o*c + c*c
-	// d*t*d*t + 2(o-c)*d*t + (o-c)*(o-c)
-	//
-	// t*t*d*d + t*2*(o-c)*d + (o-c)*(o-c) - r*r
-	//
-	// a = dx*dx + dy*dy + dz*dz
-	// b = 2(ox-cx)*dx + 2(oy-cy)*dy + 2(oz-cz)*dz
-	// c = (ox-cx)*(ox-cx) + (oy-cy)*(oy-cy) + (oz-cz)*(oz-cz) - r*r
-	//
-	// now put it in quadratic form:
-	// t = (-b +/- sqrt(b*b - 4ac)) / 2a
-	//
-	//
-	//1. a, b, and c are given to you just above.
-	//2. Create variables named a,b,c, and assign the values you see above.
-	//3. Look how a,b,c are used in the quadratic equation.
-	//4. Make your code solve for t.
-	//5. Remember, a quadratic can have 0, 1, or 2 solutions.
-	//
-	Flt a = ray->d[0]*ray->d[0] + ray->d[1]*ray->d[1] + ray->d[2]*ray->d[2];
-	Flt b = 2.0*(ray->o[0]-o->center[0])*ray->d[0] +
-		2.0*(ray->o[1]-o->center[1])*ray->d[1] +
-		2.0*(ray->o[2]-o->center[2])*ray->d[2];
-	Flt c = (ray->o[0]-o->center[0])*(ray->o[0]-o->center[0]) +
-		(ray->o[1]-o->center[1])*(ray->o[1]-o->center[1]) +
-		(ray->o[2]-o->center[2])*(ray->o[2]-o->center[2]) -
-		o->radius*o->radius;
-	Flt t0,t1;
-	//discriminant
-	Flt disc = b * b - 4.0 * a * c;
-	if (disc < 0.0) return 0;
-	disc = sqrt(disc);
-	t0 = (-b - disc) / (2.0*a);
-	t1 = (-b + disc) / (2.0*a);
-	if (t0 > 0.0) {
-		hit->p[0] = ray->o[0] + ray->d[0] * t0;
-		hit->p[1] = ray->o[1] + ray->d[1] * t0;
-		hit->p[2] = ray->o[2] + ray->d[2] * t0;
-		sphereNormal(hit->p, o->center, hit->norm);
-		hit->t = t0;
-		return 1;
-	}
-	if (t1 > 0.0) {
-		hit->p[0] = ray->o[0] + ray->d[0] * t1;
-		hit->p[1] = ray->o[1] + ray->d[1] * t1;
-		hit->p[2] = ray->o[2] + ray->d[2] * t1;
-		sphereNormal(hit->p, o->center, hit->norm);
-		hit->t = t1;
-		return 1;
-	}
-	return 0;
-}
 void reflect(Vec I, Vec N, Vec R)
 {
 	//I = incident vector
@@ -1061,6 +1074,8 @@ void trace(Ray *ray, Vec rgb, Flt weight, int level)
 	closehit.t = 9e9;
 	for (i=0; i<g.nobjects; i++) {
 		o = &g.object[i];
+		
+		
 		switch (o->type) {
 			case TYPE_DISK:
 				if (rayDiskIntersect(o, ray, &hit)) {
@@ -1088,6 +1103,10 @@ void trace(Ray *ray, Vec rgb, Flt weight, int level)
 				if (raySphereIntersect(o, ray, &hit)) {
 					if (hit.t < closehit.t) {
 						closehit.t = hit.t;
+						//check if ray is hit inside sphere 2
+							if (closehit.t  ) {
+								return;
+							}
 						vecCopy(hit.p, closehit.p);
 						vecCopy(o->color, closehit.color);
 						sphereNormal(o->center, closehit.p, closehit.norm);
@@ -1120,6 +1139,7 @@ void trace(Ray *ray, Vec rgb, Flt weight, int level)
 				}
 				break;
 		}
+		
 	}
 	if (h < 0) {
 		//ray did not hit an object.
